@@ -1,5 +1,5 @@
 /*!
-* kimbo v1.1.0 - 2015-44-05
+* kimbo v1.1.0 - 2015-59-05
 * http://kimbojs.com
 * Copyright (c) 2015 Denis Ciccale (@tdecs)
 * Released under the MIT license
@@ -2205,7 +2205,7 @@ Kimbo.define('events', function (_) {
   var fixEventProps = {};
   var specialEvents = {};
 
-  var _fixEvent = function (event) {
+  function _fixEvent(event) {
     var originalEvent, eventProps, props;
 
     // Already fixed
@@ -2227,22 +2227,22 @@ Kimbo.define('events', function (_) {
     });
 
     return event;
-  };
+  }
 
   // Return element id
-  var _getElementId = function (element) {
+  function _getElementId(element) {
     return element._guid || (element._guid = _guid++);
-  };
+  }
 
   // Get element handlers for the specified type
-  var _getHandlers = function (elementId, type) {
+  function _getHandlers(elementId, type) {
     var events = ((handlersHash[elementId] || {}).events || {});
 
     return (type ? events[type] : events) || [];
-  };
+  }
 
   // Register events to dom elements
-  var _addEvent = function (element, type, callback, data, selector) {
+  function _addEvent(element, type, callback, data, selector) {
 
     // TODO: element should use Kimbo.ref and the handler the _guid
     var elementId = _getElementId(element);
@@ -2302,16 +2302,12 @@ Kimbo.define('events', function (_) {
     } else {
       handlers.push(handleObj);
     }
-  };
+  }
 
   // Unregister events from dom elements
-  var _removeEvent = function (element, type, callback, selector) {
+  function _removeEvent(element, type, callback, selector) {
     var elementId = _getElementId(element);
     var handleObj, handlers, name, i;
-
-    if (!elementId) {
-      return;
-    }
 
     handlers = _getHandlers(elementId, type);
 
@@ -2355,10 +2351,10 @@ Kimbo.define('events', function (_) {
     //   delete handlersHash[elementId];
     //   delete element._guid;
     // }
-  };
+  }
 
   // Triggers a provided event type
-  var _triggerEvent = function (element, type, data) {
+  function _triggerEvent(element, type, data) {
 
     /* jshint validthis: true */
     var currentElement, lastElement, eventTree, elementId, event;
@@ -2427,10 +2423,10 @@ Kimbo.define('events', function (_) {
         handlersHash[elementId].handler.apply(currentElement, data);
       }
     });
-  };
+  }
 
   // Own defined dispatchEvent()
-  var _dispatchEvent = function (event) {
+  function _dispatchEvent(event) {
     /* jshint -W040 */
 
     // Use own event object
@@ -2518,15 +2514,15 @@ Kimbo.define('events', function (_) {
     });
 
     /* jshint +W040 */
-  };
+  }
 
-  var _returnFalse = function () {
+  function _returnFalse() {
     return false;
-  };
+  }
 
-  var _returnTrue = function () {
+  function _returnTrue() {
     return true;
-  };
+  }
 
   Kimbo.Event = function (event) {
 
@@ -2727,30 +2723,6 @@ Kimbo.define('events', function (_) {
       return this.each(function (el) {
         _triggerEvent(el, type, data);
       });
-    },
-
-    /*\
-     * $(…).hover
-     [ method ]
-     * A shortcut method to register moseenter and/or mouseleave event handlers to the matched elements.
-     > Parameters
-     - fnOver (function) A function to execute when the cursor enters the element.
-     - fnOut (function) #optional A function to execute when the cursor leaves the element.
-     > Usage
-     * Suppose a div element:
-     | <div id='box'></div>
-     * Register hover event
-     | var fnOver = function () { console.log('enter'); };
-     | var fnOut = function () { console.log('leave'); };
-     |
-     | $('.box').hover(fnOver, fnOut);
-     * When the cursor enters the `.box` element the console will log:
-     | 'enter'
-     * When the cursor leaves the `.box` element the console will log:
-     | 'leave'
-    \*/
-    hover: function (fnOver, fnOut) {
-      return this.mouseenter(fnOver).mouseleave(fnOut || fnOver);
     }
   });
 
@@ -2798,7 +2770,7 @@ Kimbo.define('ajax', function () {
 
   'use strict';
 
-  var JSONP_RE = /(\=)\?(&|$)|\?\?/i;
+  var JSONP_RE = /(\=)\?(?=&|$)|\?\?/i;
 
   var MIME_TYPES = {
     html: 'text/html',
@@ -3193,7 +3165,7 @@ Kimbo.define('ajax', function () {
   /*\
    * $.param
    [ method ]
-   * Create a serialized representation of an array or object, suitable for use in a URL query string or Ajax request.
+   * Create a serialized representation of an object, suitable for use in a URL query string or Ajax request.
    > Parameters
    - data (string|object) A string or object to serialize.
    > Usage
