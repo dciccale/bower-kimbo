@@ -1,5 +1,5 @@
 /*!
-* kimbo v1.1.0 - 2015-09-06
+* kimbo v1.1.0 - 2015-15-06
 * http://kimbojs.com
 * Copyright (c) 2015 Denis Ciccale (@tdecs)
 * Released under the MIT license
@@ -39,7 +39,7 @@
    * Kimbo object collection.
    * All methods called from a Kimbo collection affects all elements in it.
   \*/
-  var Kimbo = function (selector, context) {
+  function Kimbo(selector, context) {
     var match, div, fragment;
 
     // Auto create a new instance of Kimbo if needed
@@ -66,9 +66,10 @@
         }
 
         return this;
+      }
 
       // Create html from string
-      } else if (selector.charAt(0) === '<') {
+      if (selector.charAt(0) === '<') {
         div = document.createElement('div');
         div.innerHTML = selector;
         this.add(div.childNodes);
@@ -77,14 +78,11 @@
         fragment.append(this);
 
         return this;
+      }
 
       // All other selectors
-      } else {
-
-        context = context ? _.kimbo(context) : _.rootContext;
-
-        return context.find(selector);
-      }
+      context = context ? _.kimbo(context) : _.rootContext;
+      return context.find(selector);
     }
 
     // Already a dom element
@@ -101,7 +99,7 @@
 
     // Handle kimbo object, plain objects or other objects
     return Kimbo.makeArray(selector, this);
-  };
+  }
 
   Kimbo.require = function (module) {
     return modules[module];
@@ -114,7 +112,8 @@
   /*
    * Kimbo prototype aliased as fn
    */
-  Kimbo.prototype = Kimbo.fn = {
+  Kimbo.fn = Kimbo.prototype = {
+    constructor: Kimbo,
 
     /*\
      * $(…).length
@@ -148,7 +147,10 @@
      | });
     \*/
     ready: function (callback) {
-      var completed;
+      function _completed() {
+        document.removeEventListener('DOMContentLoaded', _completed, false);
+        callback.call(document);
+      }
 
       // First check if already loaded, interactive or complete state so the t is enough
       if (/t/.test(document.readyState)) {
@@ -158,17 +160,9 @@
 
       // If not listen for when it loads
       } else {
-        completed = function () {
-
-          // When completed remove the listener
-          document.removeEventListener('DOMContentLoaded', completed, false);
-
-          // Execute the callback
-          callback.call(document);
-        };
 
         // Register the event
-        document.addEventListener('DOMContentLoaded', completed, false);
+        document.addEventListener('DOMContentLoaded', _completed, false);
       }
 
       // Return the Kimbo wrapped document
@@ -703,10 +697,12 @@ Kimbo.define('manipulation', function (_) {
   var SPACE_RE = /\s+/;
 
   var BOOLEAN_ATTR = {};
-  Kimbo.forEach(['multiple', 'selected', 'checked', 'disabled', 'readOnly', 'required', 'open'],
-    function (value) {
-      BOOLEAN_ATTR[value.toLowerCase()] = value;
-    });
+
+  Kimbo.forEach(['multiple', 'selected', 'checked', 'async', 'autofocus', 'autoplay',
+    'controls', 'defer', 'disabled', 'hidden', 'readOnly', 'required', 'open', 'required'
+  ], function (value) {
+    BOOLEAN_ATTR[value.toLowerCase()] = value;
+  });
 
   // Browser native classList
   function _hasClass(el, name) {
@@ -1820,14 +1816,14 @@ Kimbo.define('utilities', function (_) {
   var isMobile = null;
 
   var objectTypes = {};
+  var toString = Object.prototype.toString;
 
   // Map object types
-  Kimbo.forEach([ 'Array', 'Boolean', 'Date', 'Error', 'Function',
+  Kimbo.forEach(['Array', 'Boolean', 'Date', 'Error', 'Function',
     'Number', 'Object', 'RegExp', 'String'
   ], function (type) {
-      objectTypes['[object ' + type + ']'] = type.toLowerCase();
-    }
-  );
+    objectTypes['[object ' + type + ']'] = type.toLowerCase();
+  });
 
   Kimbo.extend({
     /*\
@@ -1857,10 +1853,10 @@ Kimbo.define('utilities', function (_) {
         type = String(obj);
 
       } else {
-        type = (objectTypes[Object.prototype.toString.call(obj)] || 'object');
+        type = objectTypes[toString.call(obj)];
       }
 
-      return type;
+      return type || 'object';
     },
 
     /*\
@@ -2104,7 +2100,7 @@ Kimbo.define('utilities', function (_) {
      | 'backgroundColor'
     \*/
     camelCase: function (str) {
-      return str.replace(/-+(.)?/g, function (wholeMatch, character) {
+      return str.replace(/-+(.)?/g, function (all, character) {
         return character.toUpperCase();
       });
     },
@@ -2368,9 +2364,7 @@ Kimbo.define('events', function (_) {
 
   // Triggers a provided event type
   function _triggerEvent(element, type, data) {
-
-    /* jshint validthis: true */
-    var currentElement, lastElement, eventTree, elementId, event, special;
+    var currentElement, lastElement, eventTree, event, special;
 
     // Don't do events if element is text or comment node
     // Or if there is no event type at all or type is not a string
@@ -2379,10 +2373,8 @@ Kimbo.define('events', function (_) {
     }
 
     // Try triggering native focus and blur events
-    if (type === 'focus' || type === 'blur') {
-      try {
-        return element[type]();
-      } catch (e) {}
+    if ((type === 'focus' || type === 'blur') && element[type]) {
+      return element[type]();
     }
 
     // Create a new writable custom event object
@@ -2399,6 +2391,7 @@ Kimbo.define('events', function (_) {
     // Include data if any
     data = data ? Kimbo.makeArray(data) : [];
 
+    // Check if it's a special event
     special = specialEvents[type] || {};
 
     // Event goes first
@@ -2422,15 +2415,9 @@ Kimbo.define('events', function (_) {
 
     // Fire handlers up to the document (or the last element)
     Kimbo.forEach(eventTree, function (branch) {
-
-      // Element
-      currentElement = branch[0];
-
-      // Type
+      var currentElement = branch[0];
+      var elementId = currentElement._guid;
       event.type = special.origType || branch[1];
-
-      // Get element id
-      elementId = currentElement._guid;
 
       // If the current element has events of the specified type, dispatch them
       if (elementId && _getHandlers(elementId, type)) {
@@ -2472,11 +2459,7 @@ Kimbo.define('events', function (_) {
 
           // Loop throgh delegated events
           for (i = 0; i < delegateCount; i++) {
-
-            // Get its handler
             handleObj = handlers[i];
-
-            // Get its selector
             selector = handleObj.selector;
 
             if (!selMatch[selector]) {
@@ -2489,7 +2472,7 @@ Kimbo.define('events', function (_) {
           }
 
           if (matches.length) {
-            handlerQueue.push({elem: currentElement, matches: matches});
+            handlerQueue.push({element: currentElement, matches: matches});
           }
         }
       }
@@ -2497,15 +2480,15 @@ Kimbo.define('events', function (_) {
 
     // Add the remaining not delegated handlers
     if (handlers.length > delegateCount) {
-      handlerQueue.push({elem: this, matches: handlers.slice(delegateCount)});
+      handlerQueue.push({element: this, matches: handlers.slice(delegateCount)});
     }
 
     // Fire callbacks queue
     Kimbo.forEach(handlerQueue, function (handler) {
 
-      // Only fire handler if event wasnt stopped
+      // Only fire handler if event wasn't stopped
       if (!event.isPropagationStopped()) {
-        event.currentTarget = handler.elem;
+        event.currentTarget = handler.element;
 
         Kimbo.forEach(handler.matches, function (handleObj) {
 
@@ -2515,7 +2498,7 @@ Kimbo.define('events', function (_) {
             event.handleObj = handleObj;
 
             // Call original callback, check if its an special event first
-            ret = ((specialEvents[handleObj.origType] || {}).handle || handleObj.callback).apply(handler.elem, args);
+            ret = ((specialEvents[handleObj.origType] || {}).handle || handleObj.callback).apply(handler.element, args);
 
             // If callback returns false, stop the event
             if (ret === false) {
@@ -2784,6 +2767,7 @@ Kimbo.define('ajax', function () {
 
   'use strict';
 
+  var NO_CONTENT_RE = /^(?:GET|HEAD)$/;
   var JSONP_RE = /(\=)\?(?=&|$)|\?\?/i;
 
   var MIME_TYPES = {
@@ -2881,8 +2865,8 @@ Kimbo.define('ajax', function () {
   Kimbo.ajaxSettings = {
     type: 'GET',
     async: true,
-    success: {},
-    error: {},
+    success: null,
+    error: null,
     context: null,
     headers: {},
     data: null,
@@ -2934,9 +2918,15 @@ Kimbo.define('ajax', function () {
     var settings = Kimbo.extend({}, Kimbo.ajaxSettings, options);
     var xhr, abortTimeout, callback;
 
+    var hasContent = !NO_CONTENT_RE.test(settings.type);
+
     // Add data to url
-    if (settings.data) {
-      settings.url += (/\?/.test(settings.url) ? '&' : '?') + Kimbo.param(settings.data);
+    if (settings.data && typeof settings.data !== 'string') {
+      settings.data = Kimbo.param(settings.data);
+    }
+
+    if (settings.data && !hasContent) {
+      settings.url += (/\?/.test(settings.url) ? '&' : '?') + settings.data;
       delete settings.data;
     }
 
@@ -2958,35 +2948,31 @@ Kimbo.define('ajax', function () {
       abortTimeout = _createAbortTimeout(xhr, settings);
     }
 
+    settings.type = settings.type.toUpperCase();
+
     // On complete callback
     callback = function () {
-      var response, status;
+      var status = xhr.status;
+      var response;
 
-      // Request complete
-      if (xhr.readyState === 4) {
-        status = xhr.status;
+      // Clear timeout
+      window.clearTimeout(abortTimeout);
 
-        // Clear timeout
-        window.clearTimeout(abortTimeout);
-
-        // Scuccess
-        if ((status >= 200 && status < 300) || status === 304) {
-          if (settings.async) {
-            response = _handleResponse(xhr, settings);
-            if (response !== false) {
-              xhrCallbacks.success(response, xhr, settings);
-            }
-          }
-
-        // Fail
-        } else {
-          xhrCallbacks.error('error', xhr.statusText, xhr, settings);
+      // Scuccess
+      if ((status >= 200 && status < 300) || status === 304) {
+        response = _handleResponse(xhr, settings);
+        if (response !== false) {
+          xhrCallbacks.success(response, xhr, settings);
         }
+
+      // Fail
+      } else {
+        xhrCallbacks.error('error', xhr.statusText, xhr, settings);
       }
     };
 
     // Listen for response
-    xhr.onreadystatechange = callback;
+    xhr.onload = callback;
 
     // Init request
     xhr.open(settings.type, settings.url, settings.async);
@@ -3002,7 +2988,7 @@ Kimbo.define('ajax', function () {
     // Try to send request
     xhr.send(settings.data);
 
-    return (settings.async) ? xhr : callback();
+    return xhr;
   };
 
   /*\
@@ -3146,7 +3132,7 @@ Kimbo.define('ajax', function () {
     }
 
     // Set url
-    script.src = settings.url.replace(JSONP_RE, '$1' + jsonpCallback + '$2');
+    script.src = settings.url.replace(JSONP_RE, '$1' + jsonpCallback);
 
     // Jsonp callback
     window[jsonpCallback] = function (response) {
